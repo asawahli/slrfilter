@@ -1,0 +1,6 @@
+# Core app framework
+streamlit
+pandas
+numpy
+pickle
+io
