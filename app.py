@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import pd.io.formats.excel as pxl
+import pandas.io.formats.excel as pxl
 from io import BytesIO
 import pickle
 
@@ -223,5 +223,6 @@ if uploaded_file is not None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             type="primary",
         )
+
 
 
