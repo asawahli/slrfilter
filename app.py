@@ -5,8 +5,8 @@ import pickle
 
 st.set_page_config(
     layout="wide",
-    page_title="temp",
-    menu_items={"Get help": "https://google.com"},
+    page_title="Systematic Literature Review Assistant",
+    # menu_items={"Get help": "https://google.com"},
 )
 
 # # --- Initialize Session State ---
@@ -35,7 +35,22 @@ def remove_abstract():
     st.session_state.counter += 1
 
 
-st.title("Read scopus filter")
+# st.title("Systematic Literature Review Assistant")
+st.markdown(
+    """
+<div style='background-color:#f5f7fb;padding:18px;border-radius:8px;text-align: justify; font-size: 20px;'>
+<h1 style="color:#0b3d91">Systematic Literature Review Assistant</h1>
+<p style='color:#0b3d91;font-size:20px'>
+<b>Streamline your paper screening process.</b>
+<br>
+This tool is designed to help researchers manually filter Scopus search results. 
+Upload your raw CSV, review papers one by one, and export a clean dataset for your study.
+</p>
+</div>
+<br>
+""",
+    unsafe_allow_html=True,
+)
 
 uploaded_file = st.file_uploader(
     "Upload Scopus CSV or Saved Session (.pkl)", type=["csv", "pkl"]
@@ -107,9 +122,19 @@ if uploaded_file is not None:
     if current_index < len(df):
         col1, col2, col3 = st.columns([1, 1, 1])
         # --- FIX 3: Pass function without parentheses ---
-        col1.button("Keep", on_click=click, width="stretch")
-        col2.button("Remove by title", on_click=remove_title, width="stretch")
-        col3.button("Remove by abstract", on_click=remove_abstract, width="stretch")
+        col1.button(
+            "✅ Keep (Next)",
+            on_click=click,
+            use_container_width=True,
+        )
+        col2.button(
+            "❌ Remove by title",
+            on_click=remove_title,
+            use_container_width=True,
+        )
+        col3.button(
+            "❌ Remove by abstract", on_click=remove_abstract, use_container_width=True
+        )
         # st.divider()
         st.text(f"Current Progress: {current_index}/{len(df)}")
         with st.container():
@@ -123,6 +148,11 @@ if uploaded_file is not None:
                 f'<p style="font-size:24px;">{df.loc[current_index, "Authors"]}</p>',
                 unsafe_allow_html=True,
             )
+            st.subheader("Keywards")
+            st.markdown(
+                f'<p style="font-size:18px;">{df.loc[current_index, "Author Keywords"]}</p>',
+                unsafe_allow_html=True,
+            )
             st.subheader("Abstract")
             st.markdown(
                 f'<p style="font-size:18px;">{df.loc[current_index, "Abstract"]}</p>',
@@ -130,30 +160,65 @@ if uploaded_file is not None:
             )
 
     else:
-        st.warning("End of file reached.")
-        st.text(f"Total numbers of papers: {len(df)}")
-        st.text(f"removed paper by title: {len(st.session_state.r_title)}")
-        st.text(f"removed paper by abstract: {len(st.session_state.r_abstract)}")
+        st.success("🎉 Screening Complete!")
+
+        # st.text(f"Total numbers of papers: {len(df)}")
+        # st.text(f"removed paper by title: {len(st.session_state.r_title)}")
+        # st.text(f"removed paper by abstract: {len(st.session_state.r_abstract)}")
         df_clean = df.copy()
-        df_clean = df_clean.drop(index=st.session_state.r_title)
-        df_clean = df_clean.drop(index=st.session_state.r_abstract)
+        to_drop = st.session_state.r_title + st.session_state.r_abstract
+        df_clean = df_clean.drop(index=to_drop)
+
+        # df_clean = df_clean.drop(index=st.session_state.r_abstract)
         df_r_title = df.loc[st.session_state.r_title].reset_index(drop=True)
         df_r_abstract = df.loc[st.session_state.r_abstract].reset_index(drop=True)
-
+        c1, c2, c3, c4, c5 = st.columns(5)
+        c1.metric("Total Papers", len(df))
+        c2.metric("Included", len(df_clean))
+        c3.metric("Excluded", len(to_drop))
+        c4.metric("Excluded (Title)", len(df_r_title))
+        c5.metric("Excluded (Abstract)", len(df_r_abstract))
         # excel_file = "cleaned_data.xlsx"
-        excel_buffer = BytesIO()
+        st.divider()
 
+        # EID Generation
+        if not df_clean.empty:
+            eids = df_clean["EID"].astype(str).values
+            outputs = f"EID({' OR '.join(eids)})"
+            st.subheader("Scopus Advanced Search Query")
+            st.caption(
+                "Copy this string to Scopus to download full metadata/PDFs for your selected papers."
+            )
+            st.code(outputs, language="text", wrap_lines=True)
+        st.divider()
+        # Excel Export
+        meterics = {
+            "Total Papers": len(df),
+            "Included": len(df_clean),
+            "Excluded": len(to_drop),
+            "Excluded (Title)": len(df_r_title),
+            "Excluded (Abstract)": len(df_r_abstract),
+        }
+        df_meterics = pd.DataFrame(meterics, index=[0]).T.reset_index(names="Meterics")
+        df_meterics.columns = ["Meterics", ""]
+        excel_buffer = BytesIO()
+        pd.io.formats.excel.ExcelFormatter.header_style = None
         with pd.ExcelWriter(excel_buffer) as writer:
-            df_clean.to_excel(writer, sheet_name="Cleaned Data", index=False)
-            df_r_title.to_excel(writer, sheet_name="removed by title", index=False)
-            df_r_title.to_excel(writer, sheet_name="removed by abstract", index=False)
-            df.to_excel(writer, sheet_name="Original Data", index=False)
+            df_meterics.to_excel(writer, sheet_name="Meterics", index=False)
+            df_clean.to_excel(writer, sheet_name="Included", index=False)
+            df_r_title.to_excel(writer, sheet_name="Excluded (Title)", index=False)
+            df_r_title.to_excel(writer, sheet_name="Excluded (Abstract)", index=False)
+            df.to_excel(writer, sheet_name="Original Raw", index=False)
         excel_buffer.seek(0)
-        st.download_button(
-            "Download as Excel file",
-            excel_buffer.getvalue(),
-            file_name="cleaned scopus.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+
+        st.subheader("Export Results")
+        st.caption(
+            "Generates an Excel file with separate sheets for included and excluded papers."
         )
-        st.subheader("Cleaned Data")
-        st.dataframe(df_clean)
+        st.download_button(
+            label="Download Final Excel Report",
+            data=excel_buffer.getvalue(),
+            file_name="slr_results_final.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type="primary",
+        )
