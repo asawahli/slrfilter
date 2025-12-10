@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import pd.io.formats.excel
+import pd.io.formats.excel as pxl
 from io import BytesIO
 import pickle
 
@@ -203,7 +203,7 @@ if uploaded_file is not None:
         df_meterics = pd.DataFrame(meterics, index=[0]).T.reset_index(names="Meterics")
         df_meterics.columns = ["Meterics", ""]
         excel_buffer = BytesIO()
-        pd.io.formats.excel.ExcelFormatter.header_style = None
+        pxl.ExcelFormatter.header_style = None
         with pd.ExcelWriter(excel_buffer) as writer:
             df_meterics.to_excel(writer, sheet_name="Meterics", index=False)
             df_clean.to_excel(writer, sheet_name="Included", index=False)
@@ -223,4 +223,5 @@ if uploaded_file is not None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             type="primary",
         )
+
 
