@@ -150,8 +150,8 @@ if uploaded_file is not None:
             )
             st.subheader("DOI")
             st.markdown(
-                f'<a href="https://doi.org/{df.loc[current_index, "DOI"]}">[DOI]</a>' \
-                f'<a href="https://doi.org/{df.loc[current_index, "Link"]}">[Scopus Link]</a>'
+                f'<a href="https://doi.org/{df.loc[current_index, "DOI"]}">[DOI]</a>' #\
+                #f'<a href="https://doi.org/{df.loc[current_index, "Link"]}">[Scopus Link]</a>'
             )
             st.subheader("Keywards")
             st.markdown(
@@ -227,4 +227,5 @@ if uploaded_file is not None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             type="primary",
         )
+
 
