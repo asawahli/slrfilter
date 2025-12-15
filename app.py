@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 from io import BytesIO
 import pickle
 
@@ -149,11 +150,19 @@ if uploaded_file is not None:
                 unsafe_allow_html=True,
             )
             st.subheader("DOI")
-            st.markdown(
-                f'<a href="https://doi.org/{df.loc[current_index, "DOI"]}">[DOI]</a>   ' \
-                f'<a href="https://doi.org/{df.loc[current_index, "Link"]}">[Scopus Link]</a>',
-                unsafe_allow_html=True,
-            )
+            doi = df.loc[current_index, "DOI"]
+            link = df.loc[current_index, "Link"]
+            if doi is not np.nan:
+                link_text = f'''
+                <a href="https://doi.org/{doi}">[DOI]</a>   
+                <a href="{link}">[Scopus Link]</a>
+                '''
+            else:
+                link_text = f'''
+                <a>[DOI Unavailable]</a>   
+                <a href="{link}">[Scopus Link]</a>
+                '''
+            st.markdown(link_text, unsafe_allow_html=True)
             st.subheader("Keywards")
             st.markdown(
                 f'<p style="font-size:18px;">{df.loc[current_index, "Author Keywords"]}</p>',
@@ -228,9 +237,3 @@ if uploaded_file is not None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             type="primary",
         )
-
-
-
-
-
-
