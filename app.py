@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import pandas.io.formats.excel as pxl
 from io import BytesIO
 import pickle
 
@@ -146,8 +145,13 @@ if uploaded_file is not None:
             )
             st.subheader("Authors:")
             st.markdown(
-                f'<p style="font-size:24px;">{df.loc[current_index, "Authors"]}</p>',
+                f'<p style="font-size:20px;">{df.loc[current_index, "Authors"]}</p>',
                 unsafe_allow_html=True,
+            )
+            st.subheader("DOI")
+            st.markdown(
+                f'<a href="https://doi.org/{df.loc[current_index, "DOI"]}>[DOI]</a> \\
+                    <a href="https://doi.org/{df.loc[current_index, "Link"]}>[Scopus Link]</a>'
             )
             st.subheader("Keywards")
             st.markdown(
@@ -203,7 +207,7 @@ if uploaded_file is not None:
         df_meterics = pd.DataFrame(meterics, index=[0]).T.reset_index(names="Meterics")
         df_meterics.columns = ["Meterics", ""]
         excel_buffer = BytesIO()
-        pxl.ExcelFormatter.header_style = None
+        pd.io.formats.excel.ExcelFormatter.header_style = None
         with pd.ExcelWriter(excel_buffer) as writer:
             df_meterics.to_excel(writer, sheet_name="Meterics", index=False)
             df_clean.to_excel(writer, sheet_name="Included", index=False)
@@ -223,6 +227,3 @@ if uploaded_file is not None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             type="primary",
         )
-
-
-
