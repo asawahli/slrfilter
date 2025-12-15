@@ -108,7 +108,7 @@ if uploaded_file is not None:
             }
             buffer = BytesIO()
             pickle.dump(session_data, buffer)
-            now = datetime.now().strftime("%Y-%m-%d_%H-%M")
+            now = datetime.now().strftime("%Y-%m-%d_%H%M")
             buffer.seek(0)
             st.download_button(
                 label="💾 Save Progress for Later",
@@ -243,5 +243,6 @@ if uploaded_file is not None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             type="primary",
         )
+
 
 
