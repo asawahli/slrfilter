@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from io import BytesIO
 import pickle
+from datetime import datetime
 
 st.set_page_config(
     layout="wide",
@@ -46,6 +47,9 @@ st.markdown(
 <br>
 This tool is designed to help researchers manually filter Scopus search results. 
 Upload your raw CSV, review papers one by one, and export a clean dataset for your study.
+ - Required columns: Authors, Title, Authors keywords, Abstract, DOI, link, EID
+ - Session could be saved from side bar
+
 </p>
 </div>
 <br>
@@ -103,11 +107,12 @@ if uploaded_file is not None:
             }
             buffer = BytesIO()
             pickle.dump(session_data, buffer)
+            now = datetime.now().strftime("%Y-%m-%d_%H-%M")
             buffer.seek(0)
             st.download_button(
                 label="💾 Save Progress for Later",
                 data=buffer,
-                file_name="scopus_session.pkl",
+                file_name=f"session_{now}.pkl",
                 mime="application/octet-stream",
                 help="Download a file you can upload later to continue exactly where you left off.",
             )
