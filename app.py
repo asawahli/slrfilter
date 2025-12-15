@@ -150,8 +150,8 @@ if uploaded_file is not None:
             )
             st.subheader("DOI")
             st.markdown(
-                f'<a href="https://doi.org/{df.loc[current_index, "DOI"]}>[DOI]</a> \\
-                    <a href="https://doi.org/{df.loc[current_index, "Link"]}>[Scopus Link]</a>'
+                f'<a href="https://doi.org/{df.loc[current_index, "DOI"]}>[DOI]</a>'
+                # <a href="https://doi.org/{df.loc[current_index, "Link"]}>[Scopus Link]</a>'
             )
             st.subheader("Keywards")
             st.markdown(
