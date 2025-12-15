@@ -47,7 +47,7 @@ st.markdown(
 <br>
 This tool is designed to help researchers manually filter Scopus search results. 
 Upload your raw CSV, review papers one by one, and export a clean dataset for your study.
-<ul>
+<ul style='color:#0b3d91;font-size:20px'>
  <li>Required columns: Authors, Title, Authors keywords, Abstract, DOI, link, EID </li>
  <li>Session could be saved from side bar</li>
 </ul>
@@ -243,4 +243,5 @@ if uploaded_file is not None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             type="primary",
         )
+
 
