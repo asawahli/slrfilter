@@ -46,7 +46,7 @@ st.markdown(
 <b>Streamline your paper screening process.</b>
 <br>
 This tool is designed to help researchers manually filter Scopus search results. 
-Upload your raw CSV, review papers one by one, and export a clean dataset for your study.
+Upload your raw CSV from scopus database, review papers one by one, and export a clean dataset for your study.
 <ul style='color:#0b3d91;font-size:20px'>
  <li>Minimum columns required: Authors, Title,Year, Authors keywords, Abstract, DOI, link, EID </li>
  <li>Session could be saved from sidebar</li>
