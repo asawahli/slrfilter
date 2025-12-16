@@ -183,7 +183,7 @@ if uploaded_file is not None:
             )
             st.subheader("Abstract")
             st.markdown(
-                f'<p style="font-size:18px;text-align: justify; width: 300px;">{df.loc[current_index, "Abstract"]}</p>',
+                f'<p style="font-size:18px;text-align: justify;">{df.loc[current_index, "Abstract"]}</p>',
                 unsafe_allow_html=True,
             )
 
@@ -250,6 +250,7 @@ if uploaded_file is not None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             type="primary",
         )
+
 
 
 
