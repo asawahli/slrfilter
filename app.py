@@ -150,12 +150,15 @@ if uploaded_file is not None:
                 f'<p style="font-size:24px;">{df.loc[current_index, "Title"]}</p>',
                 unsafe_allow_html=True,
             )
-            st.subheader("Authors:")
-            st.markdown(
+            col1, col2, col3 = st.columns(3)
+            col1.subheader("Authors:")
+            col1.markdown(
                 f'<p style="font-size:20px;">{df.loc[current_index, "Authors"]}</p>',
                 unsafe_allow_html=True,
             )
-            st.subheader("DOI")
+            col2.subheader("Year")
+            col2.text(df.loc[current_index, 'Year'])
+            col3.subheader("DOI")
             doi = df.loc[current_index, "DOI"]
             link = df.loc[current_index, "Link"]
             if doi is not np.nan:
@@ -168,7 +171,7 @@ if uploaded_file is not None:
                 <a>[DOI Unavailable]</a>   
                 <a href="{link}">[Scopus Link]</a>
                 '''
-            st.markdown(link_text, unsafe_allow_html=True)
+            col3.markdown(link_text, unsafe_allow_html=True)
             st.subheader("Keywards")
             st.markdown(
                 f'<p style="font-size:18px;">{df.loc[current_index, "Author Keywords"]}</p>',
@@ -243,6 +246,7 @@ if uploaded_file is not None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             type="primary",
         )
+
 
 
 
