@@ -130,7 +130,7 @@ if uploaded_file is not None:
         col1, col2, col3 = st.columns([1, 1, 1])
         # --- FIX 3: Pass function without parentheses ---
         col1.button(
-            "✅ Keep (Next)",
+            "✅ Include (Next)",
             on_click=click,
             use_container_width=True,
         )
@@ -243,6 +243,7 @@ if uploaded_file is not None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             type="primary",
         )
+
 
 
 
