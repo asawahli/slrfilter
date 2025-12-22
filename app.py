@@ -4,6 +4,7 @@ import numpy as np
 from io import BytesIO
 import pickle
 from datetime import datetime
+import re
 
 st.set_page_config(
     layout="wide",
@@ -35,6 +36,32 @@ def remove_title():
 def remove_abstract():
     st.session_state.r_abstract.append(st.session_state.counter)
     st.session_state.counter += 1
+
+
+# highlight abstract
+
+
+def highlight_text(text, term):
+    # Escape the term to prevent regex errors (e.g., if user types "?")
+    words = term.split()
+    words = [re.escape(w) for w in words if w.strip()]
+
+    if not words:
+        return text
+    words.sort(key=len, reverse=True)
+    pattern_str = "|".join(words)
+    # Compile regex:
+    # re.IGNORECASE makes it case insensitive
+    # pattern = re.compile(escaped_term, re.IGNORECASE)
+    pattern = re.compile(pattern_str, re.IGNORECASE)
+    # The replacement function
+    highlight_color = "#68c1f9"
+    highlighted_part = pattern.sub(
+        lambda m: f'<span style="background-color: {highlight_color}; color: black;">{m.group(0)}</span>',
+        text,
+    )
+    # Perform the substitution
+    return highlighted_part
 
 
 # st.title("Systematic Literature Review Assistant")
@@ -157,7 +184,7 @@ if uploaded_file is not None:
                 unsafe_allow_html=True,
             )
             col2.subheader("Year")
-            #col2.text(df.loc[current_index, 'Year'])
+            # col2.text(df.loc[current_index, 'Year'])
             col2.markdown(
                 f'<p style="font-size:20px;">{df.loc[current_index, "Year"]}</p>',
                 unsafe_allow_html=True,
@@ -182,8 +209,15 @@ if uploaded_file is not None:
                 unsafe_allow_html=True,
             )
             st.subheader("Abstract")
+            highlight_terms = st.text_input("Highlight words:", "")
+            abstract = df.loc[current_index, "Abstract"]
+            highlight_abstract = highlight_text(abstract, highlight_terms)
+            # st.markdown(
+            #     f'<p style="font-size:18px;text-align: justify;">{df.loc[current_index, "Abstract"]}</p>',
+            #     unsafe_allow_html=True,
+            # )
             st.markdown(
-                f'<p style="font-size:18px;text-align: justify;">{df.loc[current_index, "Abstract"]}</p>',
+                f'<p style="font-size:18px;text-align: justify;">{highlight_abstract}</p>',
                 unsafe_allow_html=True,
             )
 
@@ -250,11 +284,3 @@ if uploaded_file is not None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             type="primary",
         )
-
-
-
-
-
-
-
-
