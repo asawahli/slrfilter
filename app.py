@@ -170,7 +170,13 @@ if uploaded_file is not None:
             "❌ Remove by abstract", on_click=remove_abstract, use_container_width=True
         )
         # st.divider()
-        st.text(f"Current Progress: {current_index}/{len(df)}")
+        cols = st.columns(4)
+        cols[0].text(f"Current Progress: {current_index}/{len(df)}")
+        cols[1].text(
+            f"Included: {st.session_state.counter - len(st.session_state.r_title) - len(st.session_state.r_abstract)}"
+        )
+        cols[2].text(f"Removed by Title: {len(st.session_state.r_title)}")
+        cols[3].text(f"Removed by Abstract: {len(st.session_state.r_abstract)}")
         with st.container():
             st.subheader("Title:")
             st.markdown(
