@@ -275,7 +275,7 @@ if uploaded_file is not None:
             df_meterics.to_excel(writer, sheet_name="Meterics", index=False)
             df_clean.to_excel(writer, sheet_name="Included", index=False)
             df_r_title.to_excel(writer, sheet_name="Excluded (Title)", index=False)
-            df_r_title.to_excel(writer, sheet_name="Excluded (Abstract)", index=False)
+            df_r_abstract.to_excel(writer, sheet_name="Excluded (Abstract)", index=False)
             df.to_excel(writer, sheet_name="Original Raw", index=False)
         excel_buffer.seek(0)
 
@@ -290,3 +290,4 @@ if uploaded_file is not None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             type="primary",
         )
+
