@@ -198,16 +198,26 @@ if uploaded_file is not None:
             col3.subheader("DOI")
             doi = df.loc[current_index, "DOI"]
             link = df.loc[current_index, "Link"]
-            if doi is not np.nan:
-                link_text = f'''
-                <a href="https://doi.org/{doi}">[DOI]</a>   
-                <a href="{link}">[Scopus Link]</a>
-                '''
-            else:
+            if pd.isna(doi):
                 link_text = f'''
                 <a>[DOI Unavailable]</a>   
                 <a href="{link}">[Scopus Link]</a>
                 '''
+            else:
+                link_text = f'''
+                <a href="https://doi.org/{doi}">[DOI]</a>   
+                <a href="{link}">[Scopus Link]</a>
+                '''
+            # if doi is not np.nan:
+            #     link_text = f'''
+            #     <a href="https://doi.org/{doi}">[DOI]</a>   
+            #     <a href="{link}">[Scopus Link]</a>
+            #     '''
+            # else:
+            #     link_text = f'''
+            #     <a>[DOI Unavailable]</a>   
+            #     <a href="{link}">[Scopus Link]</a>
+            #     '''
             col3.markdown(link_text, unsafe_allow_html=True)
             st.subheader("Keywards")
             st.markdown(
@@ -290,5 +300,6 @@ if uploaded_file is not None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             type="primary",
         )
+
 
 
