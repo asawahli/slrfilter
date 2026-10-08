@@ -1,0 +1,24 @@
+# API keys and secrets
+.env
+.streamlit/secrets.toml
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+cleaned_data.xlsx
+*.code-workspace
+test_data_9.csv
+test.ipynb
+test.py

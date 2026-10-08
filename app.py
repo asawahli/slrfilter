@@ -57,7 +57,9 @@ def highlight_text(text, term):
     # The replacement function
     highlight_color = "#68c1f9"
     highlighted_part = pattern.sub(
-        lambda m: f'<span style="background-color: {highlight_color}; color: black;">{m.group(0)}</span>',
+        lambda m: (
+            f'<span style="background-color: {highlight_color}; color: black;">{m.group(0)}</span>'
+        ),
         text,
     )
     # Perform the substitution
@@ -84,6 +86,7 @@ Upload your raw CSV from scopus database, review papers one by one, and export a
 """,
     unsafe_allow_html=True,
 )
+
 
 uploaded_file = st.file_uploader(
     "Upload Scopus CSV or Saved Session (.pkl)", type=["csv", "pkl"]
@@ -144,6 +147,9 @@ if uploaded_file is not None:
                 mime="application/octet-stream",
                 help="Download a file you can upload later to continue exactly where you left off.",
             )
+            st.html("<div style='height: 75px;'></div>")
+            kofi_html = "<script type='text/javascript' src='https://storage.ko-fi.com/cdn/widget/Widget_2.js'></script><script type='text/javascript'>kofiwidget2.init('Support me on Ko-fi', '#72a4f2', 'O1E628CFB4');kofiwidget2.draw();</script>"
+            st.iframe(kofi_html)
 
     # # It is better to cache this read, but for now this works:
     # df = pd.read_csv(uploaded_file)
@@ -210,12 +216,12 @@ if uploaded_file is not None:
                 '''
             # if doi is not np.nan:
             #     link_text = f'''
-            #     <a href="https://doi.org/{doi}">[DOI]</a>   
+            #     <a href="https://doi.org/{doi}">[DOI]</a>
             #     <a href="{link}">[Scopus Link]</a>
             #     '''
             # else:
             #     link_text = f'''
-            #     <a>[DOI Unavailable]</a>   
+            #     <a>[DOI Unavailable]</a>
             #     <a href="{link}">[Scopus Link]</a>
             #     '''
             col3.markdown(link_text, unsafe_allow_html=True)
@@ -280,12 +286,14 @@ if uploaded_file is not None:
         df_meterics = pd.DataFrame(meterics, index=[0]).T.reset_index(names="Meterics")
         df_meterics.columns = ["Meterics", ""]
         excel_buffer = BytesIO()
-        #pd.io.formats.excel.ExcelFormatter.header_style = None
+        # pd.io.formats.excel.ExcelFormatter.header_style = None # remove formatting of excel file
         with pd.ExcelWriter(excel_buffer) as writer:
             df_meterics.to_excel(writer, sheet_name="Meterics", index=False)
             df_clean.to_excel(writer, sheet_name="Included", index=False)
             df_r_title.to_excel(writer, sheet_name="Excluded (Title)", index=False)
-            df_r_abstract.to_excel(writer, sheet_name="Excluded (Abstract)", index=False)
+            df_r_abstract.to_excel(
+                writer, sheet_name="Excluded (Abstract)", index=False
+            )
             df.to_excel(writer, sheet_name="Original Raw", index=False)
         excel_buffer.seek(0)
 
@@ -300,6 +308,3 @@ if uploaded_file is not None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             type="primary",
         )
-
-
-
