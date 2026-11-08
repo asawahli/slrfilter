@@ -185,7 +185,7 @@ if uploaded_file is not None:
         col1, col2, col3, col4 = st.columns([1, 1, 1, 0.5])
         # --- FIX 3: Pass function without parentheses ---
         col1.button(
-            "✅ Include (Next)",
+            "Include (Next)",
             icon="✅",
             on_click=click,
             use_container_width=True,
@@ -193,13 +193,15 @@ if uploaded_file is not None:
             type="primary",
         )
         col2.button(
-            "❌ Remove by title",
+            "Remove by title",
+            icon="❌",
             on_click=remove_title,
             use_container_width=True,
             type="secondary",
         )
         col3.button(
-            "❌ Remove by abstract",
+            "Remove by abstract",
+            icon="❌",
             on_click=remove_abstract,
             use_container_width=True,
             type="secondary",
