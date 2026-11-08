@@ -5,6 +5,7 @@ from io import BytesIO
 import pickle
 from datetime import datetime
 import re
+import plotly.express as px
 
 st.set_page_config(
     layout="wide",
@@ -38,32 +39,53 @@ def remove_abstract():
     st.session_state.counter += 1
 
 
+def back():
+    if st.session_state.counter > 0:
+        st.session_state.counter -= 1
+        prev_idx = st.session_state.counter
+
+        # remove from exclusion lists if previsolyy removed
+        if prev_idx in st.session_state.r_title:
+            st.session_state.r_title.remove(prev_idx)
+        if prev_idx in st.session_state.r_abstract:
+            st.session_state.r_abstract.remove(prev_idx)
+        if "included" in st.session_state and prev_idx in st.session_state.included:
+            st.session_state.included.remove(prev_idx)
+
+
 # highlight abstract
 
 
-def highlight_text(text, term):
-    # Escape the term to prevent regex errors (e.g., if user types "?")
-    words = term.split()
-    words = [re.escape(w) for w in words if w.strip()]
+def highlight_text(text, term, termx):
+    if not isinstance(text, str) or not text:
+        return ""
 
-    if not words:
+    # Escape terms to prevent regex errors (e.g., if user types special characters like '?')
+    words = [re.escape(w) for w in term.split() if w.strip()]
+    wordsx = [re.escape(w) for w in termx.split() if w.strip()]
+
+    if not words and not wordsx:
         return text
-    words.sort(key=len, reverse=True)
-    pattern_str = "|".join(words)
-    # Compile regex:
-    # re.IGNORECASE makes it case insensitive
-    # pattern = re.compile(escaped_term, re.IGNORECASE)
-    pattern = re.compile(pattern_str, re.IGNORECASE)
-    # The replacement function
-    highlight_color = "#68c1f9"
-    highlighted_part = pattern.sub(
-        lambda m: (
-            f'<span style="background-color: {highlight_color}; color: black;">{m.group(0)}</span>'
-        ),
-        text,
-    )
-    # Perform the substitution
-    return highlighted_part
+
+    # Build named groups for a single-pass regex to avoid HTML tag corruption
+    patterns = []
+    if words:
+        words.sort(key=len, reverse=True)
+        patterns.append(f"(?P<green>{'|'.join(words)})")
+    if wordsx:
+        wordsx.sort(key=len, reverse=True)
+        patterns.append(f"(?P<red>{'|'.join(wordsx)})")
+
+    combined_pattern = re.compile("|".join(patterns), re.IGNORECASE)
+
+    def replace_match(m):
+        if m.group("green"):
+            return f'<span style="background-color: #98df8a; color: black; font-weight: normal; padding: 0px 0px; border-radius: 1px;">{m.group(0)}</span>'
+        elif m.group("red"):
+            return f'<span style="background-color: #ff9896; color: black; font-weight: normal; padding: 0px 0px; border-radius: 1px;">{m.group(0)}</span>'
+        return m.group(0)
+
+    return combined_pattern.sub(replace_match, text)
 
 
 # st.title("Systematic Literature Review Assistant")
@@ -160,20 +182,34 @@ if uploaded_file is not None:
 
     # --- Safety Check: Ensure we haven't gone past the end of the file ---
     if current_index < len(df):
-        col1, col2, col3 = st.columns([1, 1, 1])
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 0.5])
         # --- FIX 3: Pass function without parentheses ---
         col1.button(
             "✅ Include (Next)",
+            icon="✅",
             on_click=click,
             use_container_width=True,
+            key="include_key",
+            type="primary",
         )
         col2.button(
             "❌ Remove by title",
             on_click=remove_title,
             use_container_width=True,
+            type="secondary",
         )
         col3.button(
-            "❌ Remove by abstract", on_click=remove_abstract, use_container_width=True
+            "❌ Remove by abstract",
+            on_click=remove_abstract,
+            use_container_width=True,
+            type="secondary",
+        )
+        col4.button(
+            "Back",
+            on_click=back,
+            use_container_width=True,
+            type="secondary",
+            disabled=(current_index == 0),
         )
         # st.divider()
         cols = st.columns(4)
@@ -183,6 +219,7 @@ if uploaded_file is not None:
         )
         cols[2].text(f"Removed by Title: {len(st.session_state.r_title)}")
         cols[3].text(f"Removed by Abstract: {len(st.session_state.r_abstract)}")
+        st.progress(current_index / len(df))
         with st.container():
             st.subheader("Title:")
             st.markdown(
@@ -225,15 +262,19 @@ if uploaded_file is not None:
             #     <a href="{link}">[Scopus Link]</a>
             #     '''
             col3.markdown(link_text, unsafe_allow_html=True)
-            st.subheader("Keywards")
+            st.subheader("Keywords")
             st.markdown(
                 f'<p style="font-size:18px;">{df.loc[current_index, "Author Keywords"]}</p>',
                 unsafe_allow_html=True,
             )
             st.subheader("Abstract")
-            highlight_terms = st.text_input("Highlight words:", "")
+            col_1, col_2 = st.columns(2)
+            highlight_terms = col_1.text_input("Highlight words (Green):", "")
+            highlightx_terms = col_2.text_input("Highlight words (Red):", "")
             abstract = df.loc[current_index, "Abstract"]
-            highlight_abstract = highlight_text(abstract, highlight_terms)
+            highlight_abstract = highlight_text(
+                abstract, highlight_terms, highlightx_terms
+            )
             # st.markdown(
             #     f'<p style="font-size:18px;text-align: justify;">{df.loc[current_index, "Abstract"]}</p>',
             #     unsafe_allow_html=True,
@@ -245,6 +286,9 @@ if uploaded_file is not None:
 
     else:
         st.success("🎉 Screening Complete!")
+
+        if st.button("Back to Last Paper", on_click=back, type="secondary"):
+            st.rerun()
 
         # st.text(f"Total numbers of papers: {len(df)}")
         # st.text(f"removed paper by title: {len(st.session_state.r_title)}")
@@ -262,6 +306,33 @@ if uploaded_file is not None:
         c3.metric("Excluded", len(to_drop))
         c4.metric("Excluded (Title)", len(df_r_title))
         c5.metric("Excluded (Abstract)", len(df_r_abstract))
+
+        pie_data = pd.DataFrame(
+            {
+                "type": ["Included", "Excluded (Title)", "Excluded (Abstract)"],
+                "Count": [len(df_clean), len(df_r_title), len(df_r_abstract)],
+            }
+        )
+        fig = px.pie(
+            pie_data,
+            "type",
+            "Count",
+            color="type",
+            hole=0.4,
+            color_discrete_map={
+                "Included": "forestgreen",
+                "Excluded (Title)": "red",
+                "Excluded (Abstract)": "pink",
+            },
+        )
+        fig.update_traces(textposition="inside", textinfo="percent+label")
+        # fig.update_layout(margin=dict(t=0, l=0, r=0, b=0))
+
+        st.plotly_chart(
+            fig,
+            width="content",
+        )
+
         # excel_file = "cleaned_data.xlsx"
         st.divider()
 
