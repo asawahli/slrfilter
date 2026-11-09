@@ -6,6 +6,13 @@ import pickle
 from datetime import datetime
 import re
 import plotly.express as px
+from utils import (
+    highlight_text,
+    find_doi_duplicates,
+    find_title_duplicates,
+    normalize_doi,
+    normalize_title,
+)
 
 st.set_page_config(
     layout="wide",
@@ -53,39 +60,217 @@ def back():
             st.session_state.included.remove(prev_idx)
 
 
-# highlight abstract
+#################################################################
+def _build_dup_summary_msg(doi_dropped, title_dropped):
+    total_dropped = doi_dropped + title_dropped
+    if total_dropped > 0:
+        details = []
+        if doi_dropped > 0:
+            details.append(f"{doi_dropped} by DOI")
+        if title_dropped > 0:
+            details.append(f"{title_dropped} by title")
+        breakdown = f" ({', '.join(details)})"
+        return f"Duplicate review complete. Removed {total_dropped} paper(s) in total{breakdown}."
+    return "Duplicate review complete. No duplicate papers removed."
 
 
-def highlight_text(text, term, termx):
-    if not isinstance(text, str) or not text:
-        return ""
+@st.dialog("⚠️ Duplicate DOIs Detected", width="large", dismissible=False)
+def doi_duplicate_dialog():
+    dup_indices = st.session_state.doi_duplicates
+    st.write(
+        f"Found **{len(dup_indices)} paper(s)** with identical DOIs to existing records."
+    )
+    st.caption(
+        "Would you like to automatically remove these duplicate records (keeping the first occurrence)?"
+    )
 
-    # Escape terms to prevent regex errors (e.g., if user types special characters like '?')
-    words = [re.escape(w) for w in term.split() if w.strip()]
-    wordsx = [re.escape(w) for w in termx.split() if w.strip()]
+    with st.expander(
+        f"📄 View Duplicate Papers ({len(dup_indices)} duplicate(s))", expanded=False
+    ):
+        df = st.session_state.df
+        dup_set = set(dup_indices)
+        norm_dois = df["DOI"].apply(normalize_doi)
+        dup_doi_values = set(norm_dois.loc[dup_indices].dropna())
+        matched_mask = norm_dois.isin(dup_doi_values)
 
-    if not words and not wordsx:
-        return text
+        preview_df = df.loc[matched_mask].copy()
+        preview_df["Row"] = preview_df.index + 1
+        preview_df["Status"] = [
+            "🗑️ Remove (Duplicate)" if idx in dup_set else "✅ Keep (First)"
+            for idx in preview_df.index
+        ]
+        preview_df["_norm_doi"] = norm_dois.loc[matched_mask]
+        preview_df = preview_df.sort_values(by=["_norm_doi", "Row"])
 
-    # Build named groups for a single-pass regex to avoid HTML tag corruption
-    patterns = []
-    if words:
-        words.sort(key=len, reverse=True)
-        patterns.append(f"(?P<green>{'|'.join(words)})")
-    if wordsx:
-        wordsx.sort(key=len, reverse=True)
-        patterns.append(f"(?P<red>{'|'.join(wordsx)})")
+        cols_to_show = [
+            c
+            for c in ["Row", "Status", "Title", "Authors", "Year", "DOI"]
+            if c in preview_df.columns
+        ]
+        st.dataframe(
+            preview_df[cols_to_show], use_container_width=True, hide_index=True
+        )
 
-    combined_pattern = re.compile("|".join(patterns), re.IGNORECASE)
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button(
+            "🗑️ Remove Duplicate DOIs", use_container_width=True, type="primary"
+        ):
+            st.session_state.df = st.session_state.df.drop(
+                index=dup_indices
+            ).reset_index(drop=True)
+            st.session_state.doi_removed_count = len(dup_indices)
+            st.session_state.doi_duplicates = []
+            st.session_state.show_doi_dialog = False
+            # Check if there are title duplicates next
+            title_pairs = find_title_duplicates(st.session_state.df)
+            if title_pairs:
+                st.session_state.title_dup_pairs = title_pairs
+                st.session_state.current_pair_idx = 0
+                st.session_state.indices_to_drop = set()
+                st.session_state.show_title_dialog = True
+            else:
+                st.session_state.dup_checked = True
+                st.session_state.dup_status_msg = _build_dup_summary_msg(
+                    st.session_state.doi_removed_count, 0
+                )
+                st.session_state.doi_removed_count = 0
+            st.rerun()
 
-    def replace_match(m):
-        if m.group("green"):
-            return f'<span style="background-color: #98df8a; color: black; font-weight: normal; padding: 0px 0px; border-radius: 1px;">{m.group(0)}</span>'
-        elif m.group("red"):
-            return f'<span style="background-color: #ff9896; color: black; font-weight: normal; padding: 0px 0px; border-radius: 1px;">{m.group(0)}</span>'
-        return m.group(0)
+    with col2:
+        if st.button("Keep All / Skip", use_container_width=True, type="secondary"):
+            st.session_state.doi_removed_count = 0
+            st.session_state.doi_duplicates = []
+            st.session_state.show_doi_dialog = False
+            title_pairs = find_title_duplicates(st.session_state.df)
+            if title_pairs:
+                st.session_state.title_dup_pairs = title_pairs
+                st.session_state.current_pair_idx = 0
+                st.session_state.indices_to_drop = set()
+                st.session_state.show_title_dialog = True
+            else:
+                st.session_state.dup_checked = True
+                st.session_state.dup_status_msg = (
+                    "DOI duplicates skipped. No suspected duplicate titles found."
+                )
+            st.rerun()
 
-    return combined_pattern.sub(replace_match, text)
+
+@st.dialog("🔍 Suspected Duplicate Papers by Title", width="large", dismissible=False)
+def title_duplicate_dialog():
+    pairs = st.session_state.title_dup_pairs
+    current_idx = st.session_state.current_pair_idx
+    total_pairs = len(pairs)
+    df = st.session_state.df
+
+    # Advance past any pairs whose studies no longer exist or are already marked for deletion
+    while current_idx < total_pairs:
+        pair = pairs[current_idx]
+        if (
+            pair["idx_a"] not in df.index
+            or pair["idx_b"] not in df.index
+            or pair["idx_a"] in st.session_state.indices_to_drop
+            or pair["idx_b"] in st.session_state.indices_to_drop
+        ):
+            current_idx += 1
+        else:
+            break
+    st.session_state.current_pair_idx = current_idx
+
+    if current_idx >= total_pairs:
+        # All pairs reviewed: apply deletions
+        title_dropped = len(st.session_state.indices_to_drop)
+        if title_dropped:
+            st.session_state.df = st.session_state.df.drop(
+                index=list(st.session_state.indices_to_drop)
+            ).reset_index(drop=True)
+        doi_dropped = st.session_state.get("doi_removed_count", 0)
+        st.session_state.dup_status_msg = _build_dup_summary_msg(
+            doi_dropped, title_dropped
+        )
+        st.session_state.doi_removed_count = 0
+        st.session_state.indices_to_drop = set()
+        st.session_state.show_title_dialog = False
+        st.session_state.dup_checked = True
+        st.rerun()
+        return
+
+    pair = pairs[current_idx]
+    idx_a, idx_b, score = pair["idx_a"], pair["idx_b"], pair["score"]
+
+    st.write(
+        f"**Pair {current_idx + 1} of {total_pairs}** — Similarity Match: `{score}%`"
+    )
+    st.info(
+        "Compare the two studies below and choose which one to delete, or keep both."
+    )
+
+    row_a = df.loc[idx_a]
+    row_b = df.loc[idx_b]
+
+    col_a, col_b = st.columns(2)
+
+    with col_a:
+        st.markdown(f"### Study A (Row {idx_a + 1})")
+        st.markdown(f"**Title:** {row_a.get('Title', 'N/A')}")
+        st.markdown(f"**Authors:** {row_a.get('Authors', 'N/A')}")
+        st.markdown(f"**Year:** {row_a.get('Year', 'N/A')}")
+        doi_a = row_a.get("DOI", "")
+        if pd.notna(doi_a) and str(doi_a).strip():
+            st.caption(f"DOI: {doi_a}")
+        if st.button(
+            "🗑️ Delete Study A",
+            key=f"del_a_{current_idx}",
+            use_container_width=True,
+            type="primary",
+        ):
+            st.session_state.indices_to_drop.add(idx_a)
+            st.session_state.current_pair_idx += 1
+            st.rerun()
+
+    with col_b:
+        st.markdown(f"### Study B (Row {idx_b + 1})")
+        st.markdown(f"**Title:** {row_b.get('Title', 'N/A')}")
+        st.markdown(f"**Authors:** {row_b.get('Authors', 'N/A')}")
+        st.markdown(f"**Year:** {row_b.get('Year', 'N/A')}")
+        doi_b = row_b.get("DOI", "")
+        if pd.notna(doi_b) and str(doi_b).strip():
+            st.caption(f"DOI: {doi_b}")
+        if st.button(
+            "🗑️ Delete Study B",
+            key=f"del_b_{current_idx}",
+            use_container_width=True,
+            type="primary",
+        ):
+            st.session_state.indices_to_drop.add(idx_b)
+            st.session_state.current_pair_idx += 1
+            st.rerun()
+
+    st.divider()
+    c_keep, c_skip = st.columns([1, 1])
+    with c_keep:
+        if st.button("⏭️ Keep Both (Not Duplicate)", use_container_width=True):
+            st.session_state.current_pair_idx += 1
+            st.rerun()
+    with c_skip:
+        if st.button("⏩ Finish & Skip Remaining", use_container_width=True):
+            title_dropped = len(st.session_state.indices_to_drop)
+            if title_dropped:
+                st.session_state.df = st.session_state.df.drop(
+                    index=list(st.session_state.indices_to_drop)
+                ).reset_index(drop=True)
+            doi_dropped = st.session_state.get("doi_removed_count", 0)
+            st.session_state.dup_status_msg = _build_dup_summary_msg(
+                doi_dropped, title_dropped
+            )
+            st.session_state.doi_removed_count = 0
+            st.session_state.indices_to_drop = set()
+            st.session_state.show_title_dialog = False
+            st.session_state.dup_checked = True
+            st.rerun()
+
+
+#################################################################
 
 
 # st.title("Systematic Literature Review Assistant")
@@ -123,11 +308,36 @@ if uploaded_file is not None:
         filename = uploaded_file.name
         if filename.endswith(".csv"):
             st.session_state.clear()
-            st.session_state.df = pd.read_csv(uploaded_file)
+            raw_df = pd.read_csv(uploaded_file)
+            st.session_state.df = raw_df
             st.session_state.counter = 0  # Reset counter if new file
             st.session_state.r_title = []
             st.session_state.r_abstract = []
             st.session_state.last_uploaded_file = filename
+            st.session_state.dup_checked = False
+            st.session_state.doi_removed_count = 0
+
+            # Check DOI duplicates
+            doi_dups = find_doi_duplicates(raw_df)
+            if doi_dups:
+                st.session_state.doi_duplicates = doi_dups
+                st.session_state.show_doi_dialog = True
+                st.session_state.show_title_dialog = False
+            else:
+                st.session_state.doi_duplicates = []
+                st.session_state.show_doi_dialog = False
+                # Check Title duplicates
+                title_pairs = find_title_duplicates(raw_df)
+                if title_pairs:
+                    st.session_state.title_dup_pairs = title_pairs
+                    st.session_state.current_pair_idx = 0
+                    st.session_state.indices_to_drop = set()
+                    st.session_state.show_title_dialog = True
+                else:
+                    st.session_state.dup_checked = True
+                    st.session_state.dup_status_msg = (
+                        "No duplicate papers found (checked by DOI and Title)."
+                    )
             st.success("New CSV loaded successfully!", icon="✅")
         elif filename.endswith(".pkl"):
             # restore session
@@ -139,12 +349,28 @@ if uploaded_file is not None:
                 st.session_state.r_title = data["r_title"]
                 st.session_state.r_abstract = data["r_abstract"]
                 st.session_state.last_uploaded_file = filename
+                st.session_state.dup_checked = True
                 st.success("Session restored successfully!", icon="🔄")
             except Exception as e:
                 st.error(f"Error loading session file: {e}")
-    # else:
-    #     if "last_uploaded_file" in st.session_state:
-    #         del st.session_state["last_uploaded_file"]
+
+    if st.session_state.get("show_doi_dialog", False):
+        doi_duplicate_dialog()
+    elif st.session_state.get("show_title_dialog", False):
+        title_duplicate_dialog()
+
+    if not st.session_state.get("dup_checked", True):
+        st.info(
+            "⏳ Please complete the duplicate review in the dialog above before screening."
+        )
+        if st.button("🔍 Reopen Duplicate Review", type="primary"):
+            st.rerun()
+        st.stop()
+
+    if st.session_state.get("dup_status_msg"):
+        st.info(st.session_state.dup_status_msg, icon="✨")
+        st.toast(st.session_state.dup_status_msg, icon="✨")
+        st.session_state.dup_status_msg = None
     if "df" in st.session_state and st.session_state.df is not None:
         df = st.session_state.df
         current_index = st.session_state.counter
@@ -172,6 +398,8 @@ if uploaded_file is not None:
             st.html("<div style='height: 75px;'></div>")
             kofi_html = "<script type='text/javascript' src='https://storage.ko-fi.com/cdn/widget/Widget_2.js'></script><script type='text/javascript'>kofiwidget2.init('Support me on Ko-fi', '#72a4f2', 'O1E628CFB4');kofiwidget2.draw();</script>"
             st.iframe(kofi_html)
+    else:
+        st.stop()
 
     # # It is better to cache this read, but for now this works:
     # df = pd.read_csv(uploaded_file)
@@ -289,8 +517,7 @@ if uploaded_file is not None:
     else:
         st.success("🎉 Screening Complete!")
 
-        if st.button("Back to Last Paper", on_click=back, type="secondary"):
-            st.rerun()
+        st.button("Back to Last Paper", on_click=back, type="secondary")
 
         # st.text(f"Total numbers of papers: {len(df)}")
         # st.text(f"removed paper by title: {len(st.session_state.r_title)}")
