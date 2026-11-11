@@ -119,11 +119,12 @@ def doi_duplicate_dialog():
             st.session_state.df = st.session_state.df.drop(
                 index=dup_indices
             ).reset_index(drop=True)
-            st.session_state.doi_removed_count = len(dup_indices)
+            st.session_state.doi_removed = len(dup_indices)
             st.session_state.doi_duplicates = []
             st.session_state.show_doi_dialog = False
             # Check if there are title duplicates next
-            title_pairs = find_title_duplicates(st.session_state.df)
+            with st.spinner("Checking remaining papers for duplicate titles...", show_time=True):
+                title_pairs = find_title_duplicates(st.session_state.df)
             if title_pairs:
                 st.session_state.title_dup_pairs = title_pairs
                 st.session_state.current_pair_idx = 0
@@ -132,17 +133,17 @@ def doi_duplicate_dialog():
             else:
                 st.session_state.dup_checked = True
                 st.session_state.dup_status_msg = _build_dup_summary_msg(
-                    st.session_state.doi_removed_count, 0
+                    st.session_state.doi_removed, 0
                 )
-                st.session_state.doi_removed_count = 0
             st.rerun()
 
     with col2:
         if st.button("Keep All / Skip", use_container_width=True, type="secondary"):
-            st.session_state.doi_removed_count = 0
+            st.session_state.doi_removed = 0
             st.session_state.doi_duplicates = []
             st.session_state.show_doi_dialog = False
-            title_pairs = find_title_duplicates(st.session_state.df)
+            with st.spinner("Checking remaining papers for duplicate titles...", show_time=True):
+                title_pairs = find_title_duplicates(st.session_state.df)
             if title_pairs:
                 st.session_state.title_dup_pairs = title_pairs
                 st.session_state.current_pair_idx = 0
@@ -184,11 +185,11 @@ def title_duplicate_dialog():
             st.session_state.df = st.session_state.df.drop(
                 index=list(st.session_state.indices_to_drop)
             ).reset_index(drop=True)
-        doi_dropped = st.session_state.get("doi_removed_count", 0)
+        st.session_state.title_removed = title_dropped
+        doi_dropped = st.session_state.get("doi_removed", 0)
         st.session_state.dup_status_msg = _build_dup_summary_msg(
             doi_dropped, title_dropped
         )
-        st.session_state.doi_removed_count = 0
         st.session_state.indices_to_drop = set()
         st.session_state.show_title_dialog = False
         st.session_state.dup_checked = True
@@ -259,11 +260,11 @@ def title_duplicate_dialog():
                 st.session_state.df = st.session_state.df.drop(
                     index=list(st.session_state.indices_to_drop)
                 ).reset_index(drop=True)
-            doi_dropped = st.session_state.get("doi_removed_count", 0)
+            st.session_state.title_removed = title_dropped
+            doi_dropped = st.session_state.get("doi_removed", 0)
             st.session_state.dup_status_msg = _build_dup_summary_msg(
                 doi_dropped, title_dropped
             )
-            st.session_state.doi_removed_count = 0
             st.session_state.indices_to_drop = set()
             st.session_state.show_title_dialog = False
             st.session_state.dup_checked = True
@@ -308,36 +309,41 @@ if uploaded_file is not None:
         filename = uploaded_file.name
         if filename.endswith(".csv"):
             st.session_state.clear()
-            raw_df = pd.read_csv(uploaded_file)
-            st.session_state.df = raw_df
-            st.session_state.counter = 0  # Reset counter if new file
-            st.session_state.r_title = []
-            st.session_state.r_abstract = []
-            st.session_state.last_uploaded_file = filename
-            st.session_state.dup_checked = False
-            st.session_state.doi_removed_count = 0
+            with st.spinner("Loading CSV and checking for duplicate papers...", show_time=True):
+                raw_df = pd.read_csv(uploaded_file)
+                st.session_state.df = raw_df
+                st.session_state.counter = 0  # Reset counter if new file
+                st.session_state.r_title = []
+                st.session_state.r_abstract = []
+                st.session_state.last_uploaded_file = filename
+                st.session_state.dup_checked = False
+                st.session_state.saved_highlight_terms = ""
+                st.session_state.saved_highlightx_terms = ""
+                st.session_state.raw_total = len(raw_df)
+                st.session_state.doi_removed = 0
+                st.session_state.title_removed = 0
 
-            # Check DOI duplicates
-            doi_dups = find_doi_duplicates(raw_df)
-            if doi_dups:
-                st.session_state.doi_duplicates = doi_dups
-                st.session_state.show_doi_dialog = True
-                st.session_state.show_title_dialog = False
-            else:
-                st.session_state.doi_duplicates = []
-                st.session_state.show_doi_dialog = False
-                # Check Title duplicates
-                title_pairs = find_title_duplicates(raw_df)
-                if title_pairs:
-                    st.session_state.title_dup_pairs = title_pairs
-                    st.session_state.current_pair_idx = 0
-                    st.session_state.indices_to_drop = set()
-                    st.session_state.show_title_dialog = True
+                # Check DOI duplicates
+                doi_dups = find_doi_duplicates(raw_df)
+                if doi_dups:
+                    st.session_state.doi_duplicates = doi_dups
+                    st.session_state.show_doi_dialog = True
+                    st.session_state.show_title_dialog = False
                 else:
-                    st.session_state.dup_checked = True
-                    st.session_state.dup_status_msg = (
-                        "No duplicate papers found (checked by DOI and Title)."
-                    )
+                    st.session_state.doi_duplicates = []
+                    st.session_state.show_doi_dialog = False
+                    # Check Title duplicates
+                    title_pairs = find_title_duplicates(raw_df)
+                    if title_pairs:
+                        st.session_state.title_dup_pairs = title_pairs
+                        st.session_state.current_pair_idx = 0
+                        st.session_state.indices_to_drop = set()
+                        st.session_state.show_title_dialog = True
+                    else:
+                        st.session_state.dup_checked = True
+                        st.session_state.dup_status_msg = (
+                            "No duplicate papers found (checked by DOI and Title)."
+                        )
             st.success("New CSV loaded successfully!", icon="✅")
         elif filename.endswith(".pkl"):
             # restore session
@@ -348,6 +354,11 @@ if uploaded_file is not None:
                 st.session_state.counter = data["counter"]
                 st.session_state.r_title = data["r_title"]
                 st.session_state.r_abstract = data["r_abstract"]
+                st.session_state.saved_highlight_terms = data.get("highlight_terms", "")
+                st.session_state.saved_highlightx_terms = data.get("highlightx_terms", "")
+                st.session_state.raw_total = data.get("raw_total", len(data["df"]))
+                st.session_state.doi_removed = data.get("doi_removed", 0)
+                st.session_state.title_removed = data.get("title_removed", 0)
                 st.session_state.last_uploaded_file = filename
                 st.session_state.dup_checked = True
                 st.success("Session restored successfully!", icon="🔄")
@@ -383,6 +394,17 @@ if uploaded_file is not None:
                 "counter": current_index,
                 "r_title": st.session_state.r_title,
                 "r_abstract": st.session_state.r_abstract,
+                "highlight_terms": st.session_state.get(
+                    "highlight_terms",
+                    st.session_state.get("saved_highlight_terms", ""),
+                ),
+                "highlightx_terms": st.session_state.get(
+                    "highlightx_terms",
+                    st.session_state.get("saved_highlightx_terms", ""),
+                ),
+                "raw_total": st.session_state.get("raw_total", len(df)),
+                "doi_removed": st.session_state.get("doi_removed", 0),
+                "title_removed": st.session_state.get("title_removed", 0),
             }
             buffer = BytesIO()
             pickle.dump(session_data, buffer)
@@ -499,8 +521,22 @@ if uploaded_file is not None:
             )
             st.subheader("Abstract")
             col_1, col_2 = st.columns(2)
-            highlight_terms = col_1.text_input("Highlight words (Green):", "")
-            highlightx_terms = col_2.text_input("Highlight words (Red):", "")
+            if "highlight_terms" not in st.session_state:
+                st.session_state.highlight_terms = st.session_state.get(
+                    "saved_highlight_terms", ""
+                )
+            if "highlightx_terms" not in st.session_state:
+                st.session_state.highlightx_terms = st.session_state.get(
+                    "saved_highlightx_terms", ""
+                )
+            highlight_terms = col_1.text_input(
+                "Highlight words (Green):", key="highlight_terms"
+            )
+            highlightx_terms = col_2.text_input(
+                "Highlight words (Red):", key="highlightx_terms"
+            )
+            st.session_state.saved_highlight_terms = highlight_terms
+            st.session_state.saved_highlightx_terms = highlightx_terms
             abstract = df.loc[current_index, "Abstract"]
             highlight_abstract = highlight_text(
                 abstract, highlight_terms, highlightx_terms
@@ -529,6 +565,17 @@ if uploaded_file is not None:
         # df_clean = df_clean.drop(index=st.session_state.r_abstract)
         df_r_title = df.loc[st.session_state.r_title].reset_index(drop=True)
         df_r_abstract = df.loc[st.session_state.r_abstract].reset_index(drop=True)
+
+        raw_total = st.session_state.get("raw_total", len(df))
+        doi_removed = st.session_state.get("doi_removed", 0)
+        title_removed = st.session_state.get("title_removed", 0)
+        dup_removed_total = doi_removed + title_removed
+
+        d1, d2, d3 = st.columns(3)
+        d1.metric("Raw Papers Uploaded", raw_total)
+        d2.metric("Duplicates Removed (DOI)", doi_removed)
+        d3.metric("Duplicates Removed (Title)", title_removed)
+
         c1, c2, c3, c4, c5 = st.columns(5)
         c1.metric("Total Papers", len(df))
         c2.metric("Included", len(df_clean))
@@ -577,9 +624,13 @@ if uploaded_file is not None:
         st.divider()
         # Excel Export
         meterics = {
-            "Total Papers": len(df),
+            "Raw Papers Uploaded": raw_total,
+            "Duplicates Removed (Total)": dup_removed_total,
+            "Duplicates Removed (DOI)": doi_removed,
+            "Duplicates Removed (Title)": title_removed,
+            "Screened Papers (After Dedup)": len(df),
             "Included": len(df_clean),
-            "Excluded": len(to_drop),
+            "Excluded (Screening Total)": len(to_drop),
             "Excluded (Title)": len(df_r_title),
             "Excluded (Abstract)": len(df_r_abstract),
         }
